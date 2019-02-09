@@ -410,6 +410,9 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	/** @var string[][] - key - tick, value - packet's buffers array */
 	protected $delayedPackets = [];
 	protected $editingSignData = [];
+	protected $scoreboard = null;
+	protected $commandsData = [];
+	protected $joinCompleted = false;
 
 	public function getLeaveMessage(){
 		return "";
@@ -868,9 +871,9 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			if (!is_null($this->beforeSpawnTeleportPosition)) {
 				$this->teleport($this->beforeSpawnTeleportPosition[0], $this->beforeSpawnTeleportPosition[1], $this->beforeSpawnTeleportPosition[2]);
 				$this->beforeSpawnTeleportPosition = null;
-			} else {
-				$this->nextChunkOrderRun = 0;
 			}			
+			$this->nextChunkOrderRun = 1;	
+			$this->joinCompleted = true;
 		}
 	}
 
@@ -1562,6 +1565,14 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 				$this->titleData = [];
 			}
 		}
+		
+		foreach ($this->commandsData as $key => &$commandData) {
+			$commandData['delay']--;
+			if ($commandData['delay'] <= 0) {
+				$this->processCommand($commandData['command']);
+				unset($this->commandsData[$key]);
+			}
+		}
 
 		//$this->timings->stopTiming();
 
@@ -1785,7 +1796,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 					$sign = $this->level->getTile(new Vector3($x, $y, $z));
 					if ($sign instanceof Sign) {
 						$this->checkSignChange($sign, $data);					
-					}					
+					}
 					unset($this->editingSignData[$hash]);
 				}
 				if ($this->dead !== true && $this->spawned === true) {
@@ -2443,7 +2454,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 
 				$t = $this->level->getTile($pos);
 				if ($t instanceof Sign) {
-					$this->editingSignData[Level::blockHash($packet->x, $packet->y, $packet->z)] = $packet->namedtag;					
+					$this->editingSignData[Level::blockHash($packet->x, $packet->y, $packet->z)] = $packet->namedtag;
 				}
 				//Timings::$timerTileEntityPacket->stopTiming();
 				break;
@@ -2495,17 +2506,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 						$commandLine .= ' ' . $commandParams[$param['name']];
 					}
 				}
-				
-				$ev = new PlayerCommandPreprocessEvent($this, $commandLine);
-				$this->server->getPluginManager()->callEvent($ev);
-				if ($ev->isCancelled()) {
-					break;
-				}
-				
-				$this->server->dispatchCommand($this, $commandLine);
-				
-				$ev = new PlayerCommandPostprocessEvent($this, $commandLine);
-				$this->server->getPluginManager()->callEvent($ev);
+				$this->processCommand($commandLine);				
 				break;
 			case 'RESOURCE_PACKS_CLIENT_RESPONSE_PACKET':
 				switch ($packet->status) {
@@ -2618,18 +2619,12 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 					break;
 				}
 				$commandLine = substr($packet->command, 1);
-				$commandPreprocessEvent = new PlayerCommandPreprocessEvent($this, $commandLine);
-				$this->server->getPluginManager()->callEvent($commandPreprocessEvent);
-				if ($commandPreprocessEvent->isCancelled()) {
-					break;
+				if ($this->getPlayerProtocol() >= Info::PROTOCOL_330) { //hack for 1.9+
+					$this->commandsData[] = ['command' => $commandLine, 'delay' => 2];
+				} else {
+					$this->processCommand($commandLine);
 				}
-				
-				$this->server->dispatchCommand($this, $commandLine);
-				
-				$commandPostprocessEvent = new PlayerCommandPostprocessEvent($this, $commandLine);
-				$this->server->getPluginManager()->callEvent($commandPostprocessEvent);
 				break;
-
 			/** @minProtocol 120 */
 			case 'PLAYER_SKIN_PACKET':
 				if($this->setSkin($packet->newSkinByteData, $packet->newSkinId, $packet->newSkinGeometryName, $packet->newSkinGeometryData, $packet->newCapeByteData, $packet->isPremiumSkin))
@@ -2860,10 +2855,12 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			$this->entitiesUUIDEids = [];
 			$this->lastMoveBuffer = '';
 			unset($this->buffer);
-		}
-			
-			$this->perm->clearPermissions();
-			$this->server->removePlayer($this);
+			if (!is_null($this->scoreboard)) {
+				$this->scoreboard->removePlayer($this);
+			}
+		}			
+		$this->perm->clearPermissions();
+		$this->server->removePlayer($this);
 	}
 
 	public function __debugInfo(){
@@ -3152,7 +3149,11 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 		if($targets !== null) {
 			Server::broadcastPacket($targets, $pk);
 		} else {
-			$this->dataPacket($pk);
+			if ($this->joinCompleted) {
+				$this->directDataPacket($pk);
+			} else {
+				$this->dataPacket($pk);
+			}		
 		}
 	}
 
@@ -5322,5 +5323,27 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	public function needCheckMovementInBlock() {
 		return true;
 	}
-
+	
+	public function getScoreboard() {
+		return $this->scoreboard;
+	}
+	
+	public function setScoreboard($scoreboard) {
+		$this->scoreboard = $scoreboard;
+	}
+	
+	protected function processCommand($commandLine) {
+		try {
+			$commandPreprocessEvent = new PlayerCommandPreprocessEvent($this, $commandLine);
+			$this->server->getPluginManager()->callEvent($commandPreprocessEvent);
+			if ($commandPreprocessEvent->isCancelled()) {
+				return;
+			}
+			$this->server->dispatchCommand($this, $commandLine);
+			$commandPostprocessEvent = new PlayerCommandPostprocessEvent($this, $commandLine);
+			$this->server->getPluginManager()->callEvent($commandPostprocessEvent);
+		} catch (\Exception $ex) {
+			error_log($ex->getMessage());
+		}
+	}
 }
