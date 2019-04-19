@@ -173,10 +173,10 @@ use pocketmine\network\protocol\v120\PlayerSkinPacket;
 use pocketmine\network\protocol\AddPlayerPacket;
 use pocketmine\network\protocol\RemoveEntityPacket;
 use pocketmine\network\protocol\v120\SubClientLoginPacket;
-use pocketmine\tile\SignEntity;
 use pocketmine\utils\Binary;
 use pocketmine\network\protocol\v310\NetworkChunkPublisherUpdatePacket;
 use pocketmine\network\multiversion\Entity as MultiversionEntity;
+use pocketmine\network\protocol\GameRulesChangedPacket;
 
 /**
  * Main class that handles networking, recovery, and packet sending to the server part
@@ -414,6 +414,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	protected $commandsData = [];
 	protected $joinCompleted = false;
 	protected $platformChatId = "";
+	protected $doDaylightCycle = true;
 
 	public function getLeaveMessage(){
 		return "";
@@ -846,7 +847,8 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			$pk = new SetTimePacket();
 			$pk->time = $this->level->getTime();
 			$pk->started = $this->level->stopTime == false;
-			$this->dataPacket($pk);
+			$this->dataPacket($pk);			
+			$this->setDaylightCycle(!$this->level->stopTime);
 
 			$pk = new PlayStatusPacket();
 			$pk->status = PlayStatusPacket::PLAYER_SPAWN;
@@ -1215,7 +1217,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 
 		$this->namedtag->playerGameType = new IntTag("playerGameType", $this->gamemode);
 		$pk = new SetPlayerGameTypePacket();
-		$pk->gamemode = $this->gamemode & 0x01;
+		$pk->gamemode = $this->gamemode == 3 ? 1 : $this->gamemode;
 		$this->dataPacket($pk);
 		$this->sendSettings();
 
@@ -1231,9 +1233,6 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	 */
 	public function sendSettings() {
 		$flags = AdventureSettingsPacket::FLAG_NO_PVM | AdventureSettingsPacket::FLAG_NO_MVP;
-		if ($this->isAdventure()) {
-			$flags |= AdventureSettingsPacket::FLAG_WORLD_IMMUTABLE; //Do not allow placing/breaking blocks, adventure mode
-		}
 		if ($this->autoJump) {
 			$flags |= AdventureSettingsPacket::FLAG_AUTO_JUMP;
 		}
@@ -1241,6 +1240,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			$flags |= AdventureSettingsPacket::FLAG_PLAYER_MAY_FLY;
 		}
 		if ($this->isSpectator()) {
+			$flags |= AdventureSettingsPacket::FLAG_WORLD_IMMUTABLE;
 			$flags |= AdventureSettingsPacket::FLAG_PLAYER_NO_CLIP;
 		}
 		
@@ -1461,14 +1461,14 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 						$expectedVelocity = (-$this->gravity) / $this->drag - ((-$this->gravity) / $this->drag) * exp(-$this->drag * ($this->inAirTicks - $this->startAirTicks));
 						$diff = ($this->speed->y - $expectedVelocity) ** 2;
 
-						if(!$this->hasEffect(Effect::JUMP) and $diff > 0.6 and $expectedVelocity < $this->speed->y and !$this->server->getAllowFlight()){
-							if($this->inAirTicks < 301){
-//								$this->setMotion(new Vector3(0, $expectedVelocity, 0));
-							}elseif($this->kick("Flying is not enabled on this server")){
-								//$this->timings->stopTiming();
-								return false;
-							}
-						}
+//						if(!$this->hasEffect(Effect::JUMP) and $diff > 0.6 and $expectedVelocity < $this->speed->y and !$this->server->getAllowFlight()){
+//							if($this->inAirTicks < 301){
+////								$this->setMotion(new Vector3(0, $expectedVelocity, 0));
+//							}elseif($this->kick("Flying is not enabled on this server")){
+//								//$this->timings->stopTiming();
+//								return false;
+//							}
+//						}
 						++$this->inAirTicks;
 					}	
 				}
@@ -3487,7 +3487,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 		$pk->spawnY = (int) ($spawnPosition->y + $this->getEyeHeight());
 		$pk->spawnZ = (int) $spawnPosition->z;
 		$pk->generator = 1; //0 old, 1 infinite, 2 flat
-		$pk->gamemode = $this->gamemode & 0x01;
+		$pk->gamemode = $this->gamemode == 3 ? 1 : $this->gamemode;
 		$pk->eid = $this->id;
 		$pk->stringClientVersion = $this->clientVersion;
 		$pk->multiplayerCorrelationId = $this->uuid->toString();
@@ -3874,18 +3874,23 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 	}
 
 	public function clearTitle() {
-		$pk = new SetTitlePacket();
-		$pk->type = SetTitlePacket::TITLE_TYPE_TIMES;
-		$pk->text = "";
-		$pk->fadeInTime = 0;
-		$pk->fadeOutTime = 0;
-		$pk->stayTime = 0;
-		$this->dataPacket($pk);
-		
-		$pk = new SetTitlePacket();
-		$pk->type = SetTitlePacket::TITLE_TYPE_CLEAR;
-		$pk->text = "";
-		$this->dataPacket($pk);
+		if ($this->getPlayerProtocol() >= Info::PROTOCOL_340) {
+			$this->titleData = [];
+			$this->sendTitle(" ", "", 0);
+		} else {
+			$pk = new SetTitlePacket();
+			$pk->type = SetTitlePacket::TITLE_TYPE_TIMES;
+			$pk->text = "";
+			$pk->fadeInTime = 0;
+			$pk->fadeOutTime = 0;
+			$pk->stayTime = 0;
+			$this->dataPacket($pk);
+
+			$pk = new SetTitlePacket();
+			$pk->type = SetTitlePacket::TITLE_TYPE_CLEAR;
+			$pk->text = "";
+			$this->dataPacket($pk);
+		}
 	}
 
 	public function setActionBar($text, $time = 36000){
@@ -4079,7 +4084,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 				$this->setDataFlag(self::DATA_FLAGS, self::DATA_FLAG_ACTION, false);
 
 				$itemInHand = $this->inventory->getItemInHand();
-				if ($blockVector->distance($this) > 10 || ($this->isCreative() && $this->isAdventure())) {
+				if ($blockVector->distance($this) > 10 || $this->isSpectator()) {
 
 				} else if ($this->isCreative() && !$this->isSpectator()) {
 					if ($this->level->useItemOn($blockVector, $itemInHand, $face, $clickPosition['x'], $clickPosition['y'], $clickPosition['z'], $this) === true) {
@@ -4116,6 +4121,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			
 			case 0xff:
 			case -1:  // -1 for 0.16
+				$face = -1;
 				if ($this->isSpectator()) {
 					$this->inventory->sendHeldItem($this);
 					if ($this->inventory->getHeldItemSlot() !== -1) {
@@ -4311,7 +4317,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			return;
 		}
 		$item = $inventory->getItem($transaction->getSlot());
-		if ($item == null || !$item->equals($dropItem) || $item->count < $dropItem->count) {
+		if ($item == null || !$item->deepEquals($dropItem) || $item->count < $dropItem->count) {
 			$inventory->sendContents($this);
 			return;
 		}
@@ -4590,7 +4596,10 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			} else {
 				$projectile->setMotion($projectile->getMotion()->multiply($ev->getForce()));
 				if ($this->isSurvival()) {
-					$this->inventory->removeItemWithCheckOffHand(Item::get(Item::ARROW, 0, 1));
+					if ($bow->hasEnchantments(Enchantment::TYPE_BOW_INFINITY) === null) {
+						$this->inventory->removeItemWithCheckOffHand(Item::get(Item::ARROW, 0, 1));
+					}
+
 					$bow->setDamage($bow->getDamage() + 1);
 					if ($bow->getDamage() >= 385) {
 						$this->inventory->setItemInHand(Item::get(Item::AIR, 0, 0));
@@ -5249,6 +5258,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			$pk->time = $this->level->getTime();
 			$pk->started = $this->level->stopTime == false;
 			$this->dataPacket($pk);
+			$this->setDaylightCycle(!$this->level->stopTime);
 		}
 		$this->scheduleUpdate();
 		return true;
@@ -5352,6 +5362,15 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer{
 			$this->server->getPluginManager()->callEvent($commandPostprocessEvent);
 		} catch (\Exception $ex) {
 			error_log($ex->getMessage());
+		}
+	}
+
+	public function setDaylightCycle($val) {
+		if ($this->doDaylightCycle != $val) {
+			$this->doDaylightCycle = $val;
+			$pk = new GameRulesChangedPacket();
+			$pk->gameRules = ["doDaylightCycle" => [1, $val]];
+			$this->dataPacket($pk);
 		}
 	}
 }
