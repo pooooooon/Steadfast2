@@ -37,10 +37,13 @@ class WebsocketManager
 	private function tick() {
 		foreach ($this->websockets as $ws){
 			var_dump("inTick Test");
-			//TODO: get new messages from thread...
+			//TODO: get the receivedMessageQueue
+			//TODO: for each received message check it against the awaitingMessageQueue
+			// If its not in there delete the message if it is in queue create a new ReceiveWebSocketMessage event
+			//TODO: delete message from  the awaitingMessageQueue and the receivedMessageQueue
+
 		}
 	}
-
 
 
 	public function registerSocket(Websocket $ws){
