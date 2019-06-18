@@ -151,7 +151,6 @@ use pocketmine\event\server\SendRecipiesList;
 use pocketmine\network\protocol\PEPacket;
 use pocketmine\tile\Beacon;
 use pocketmine\tile\Banner;
-use pocketmine\network\websocket\WebsocketThread;
 
 /**
  * The class that manages everything
@@ -297,8 +296,6 @@ class Server{
 	
 	private $raklibServer = null;
 	private $proxyServer = null;
-
-	private $websocketWrapper = null;
 
 	public function addSpawnedEntity($entity) {
 		if ($entity instanceof Player) {
@@ -1638,14 +1635,6 @@ class Server{
 			$this->proxyServer = $proxyInterface->getRaklib();
 			if (!$useRaklib) {
 				$this->mainInterface = $proxyInterface;
-			}
-		}
-		$useWebsocket = $this->getConfigBoolean("use-websockets", false);
-		if($useWebsocket){
-			if(extension_loaded ( "lbSocketExtension" )) {
-				$this->websocketWrapper = new WebsocketThread($this->getLogger(), $this->getLoader());
-			} else {
-				$this->logger->warning("Cannot start the websocket thread, no websocket extension loaded");
 			}
 		}
 
