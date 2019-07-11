@@ -2089,9 +2089,11 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 						if($message != "" and strlen($message) <= 255 and $this->messageCounter-- > 0){
 							$this->server->getPluginManager()->callEvent($ev = new PlayerChatEvent($this, $message));
 							if(!$ev->isCancelled()){
-								$this->server->broadcastMessage($ev->getPlayer()->getDisplayName() . ": " . $ev->getMessage(), $ev->getRecipients());
-							}
-						}
+
+	$this->server->broadcastMessage($ev->getFormat(), $ev->getPlayer()->getDisplayName(), $ev->getMessage(), $ev->getRecipients());
+					}
+				}
+		return true;
 					}
 				} else {
 					echo "Recive message with type ".$packet->type.PHP_EOL;
