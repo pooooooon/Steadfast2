@@ -23,6 +23,7 @@ namespace pocketmine\level\format\mcregion;
 
 use pocketmine\level\format\FullChunk;
 use pocketmine\level\format\generic\BaseLevelProvider;
+use pocketmine\level\generator\Generator;
 use pocketmine\level\Level;
 use pocketmine\nbt\NBT;
 use pocketmine\nbt\tag\ByteTag;
@@ -67,7 +68,7 @@ class McRegion extends BaseLevelProvider{
 		return $isValid;
 	}
 
-	public static function generate($path, $name, $seed, array $options = []){
+	public static function generate($path, $name, $seed, $generator, array $options = []){
 		if(!file_exists($path)){
 			mkdir($path, 0777, true);
 		}
@@ -81,16 +82,16 @@ class McRegion extends BaseLevelProvider{
 			"initialized" => new ByteTag("initialized", 1),
 			"GameType" => new IntTag("GameType", 0),
 			"generatorVersion" => new IntTag("generatorVersion", 1), //2 in MCPE
-			"SpawnX" => new IntTag("SpawnX", 0),
-			"SpawnY" => new IntTag("SpawnY", 10),
-			"SpawnZ" => new IntTag("SpawnZ", 0),
+			"SpawnX" => new IntTag("SpawnX", 128),
+			"SpawnY" => new IntTag("SpawnY", 70),
+			"SpawnZ" => new IntTag("SpawnZ", 128),
 			"version" => new IntTag("version", 19133),
 			"DayTime" => new IntTag("DayTime", 0),
 			"LastPlayed" => new LongTag("LastPlayed", microtime(true) * 1000),
 			"RandomSeed" => new LongTag("RandomSeed", $seed),
 			"SizeOnDisk" => new LongTag("SizeOnDisk", 0),
 			"Time" => new LongTag("Time", 0),
-			"generatorName" => new StringTag("generatorName", "FLAT"),
+			"generatorName" => new StringTag("generatorName", Generator::getGeneratorName($generator)),
 			"generatorOptions" => new StringTag("generatorOptions", isset($options["preset"]) ? $options["preset"] : ""),
 			"LevelName" => new StringTag("LevelName", $name),
 			"GameRules" => new Compound("GameRules", [])
