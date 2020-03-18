@@ -21,9 +21,7 @@
 
 namespace pocketmine\network\protocol;
 
-#include <rules/DataPacket.h>
-use pocketmine\utils\TextFormat;
-
+use pocketmine\Player;
 
 class PlayerListPacket extends PEPacket{
 	const NETWORK_ID = Info::PLAYER_LIST_PACKET;
@@ -111,7 +109,7 @@ class PlayerListPacket extends PEPacket{
 							}
 						}
 						$this->putString(isset($d[6]) ? $d[6] : ''); // Skin Geometry Name
-						$this->putString(isset($d[7]) ? $d[7] : ''); // Skin Geometry Data
+						$this->putString(isset($d[7]) ? $this->prepareGeometryDataForOld($d[7]) : ''); // Skin Geometry Data
 					}
 					$this->putString(isset($d[8]) ? $d[8] : ''); // XUID
 					if ($playerProtocol >= Info::PROTOCOL_200) {
@@ -119,16 +117,16 @@ class PlayerListPacket extends PEPacket{
 					}		
 					if ($playerProtocol >= Info::PROTOCOL_370) {
 						if ($playerProtocol >= Info::PROTOCOL_385) {
-							$this->putLInt(7);
+							$this->putLInt(isset($d[9]) ? $d[9] : Player::OS_UNKNOWN); // build platform
 						}
 						$skinData = !empty($d[4]) ? $d[4] : $emptySkin;
 						$skinGeomtryName = isset($d[6]) ? $d[6] : '';
 						$skinGeomtryData = isset($d[7]) ? $d[7] : '';
 						$capeData = isset($d[5]) ? $d[5] : '';
-						$this->putSerializedSkin($playerProtocol, $d[3], $skinData, $skinGeomtryName, $skinGeomtryData, $capeData);
+						$this->putSerializedSkin($playerProtocol, $d[3], $skinData, $skinGeomtryName, $skinGeomtryData, $capeData, (isset($d[10]) ? $d[10] : []));
 						if ($playerProtocol >= Info::PROTOCOL_385) {
-							$this->putByte(0);
-							$this->putByte(0);
+							$this->putByte(0); // is teacher
+							$this->putByte(0); // is host
 						}
 					}
 				}

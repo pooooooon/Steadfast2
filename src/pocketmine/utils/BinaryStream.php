@@ -10,7 +10,7 @@ class BinaryStream {
 	
 	private $offset;
 	private $buffer;
-	
+
 	private function writeErrorLog($depth = 3) {
 		$depth = max($depth, 3);
 		$backtrace = debug_backtrace(2, $depth);
@@ -75,7 +75,9 @@ class BinaryStream {
 		} else if ($len === true) {
 			return substr($this->buffer, $this->offset);
 		}
-
+		if (strlen($this->buffer) < $this->offset + $len) {
+			throw new \Exception('binary stream get error');
+		}
 		return $len === 1 ? $this->buffer{$this->offset++} : substr($this->buffer, ($this->offset += $len) - $len, $len);
 	}
 
@@ -164,6 +166,9 @@ class BinaryStream {
 	}
 
 	public function getByte() {
+		if (strlen($this->buffer) < $this->offset + 1) {
+			throw new \Exception('binary stream getByte error');
+		}
 		return ord($this->buffer{$this->offset++});
 	}
 
@@ -212,14 +217,20 @@ class BinaryStream {
 		$count = $aux & 0xff;
 		
 		$nbtLen = $this->getLShort();		
-		$nbt = "";		
+		$nbt = "";	
 		if ($nbtLen > 0) {
 			$nbt = $this->get($nbtLen);
 		} elseif($nbtLen == -1) {
 			$nbtCount = $this->getVarInt();
+			if ($nbtCount > 100) {
+				throw new \Exception('get slot nbt error, too many count');
+			}
 			for ($i = 0; $i < $nbtCount; $i++) {
 				$nbtTag = new NBT(NBT::LITTLE_ENDIAN);
 				$offset = $this->getOffset();
+				if ($offset > strlen($this->getBuffer())) {
+					throw new \Exception('get slot nbt error');
+				}
 				$nbtTag->read(substr($this->getBuffer(), $offset), false, true);
 				$nbt = $nbtTag->getData();
 				$this->setOffset($offset + $nbtTag->getOffset());
@@ -305,80 +316,180 @@ class BinaryStream {
 		$this->put($v);
 	}
 	
-	public function putSerializedSkin($playerProtocol, $skinId, $skinData, $skinGeomtryName, $skinGeomtryData, $capeData) {
+	public function putSerializedSkin($playerProtocol, $skinId, $skinData, $skinGeomtryName, $skinGeomtryData, $capeData, $additionalSkinData) {
+		if (!isset($additionalSkinData['PersonaSkin']) || !$additionalSkinData['PersonaSkin']) {
+			$additionalSkinData = [];
+		}
+		if (isset($additionalSkinData['skinData'])) {
+			$skinData = $additionalSkinData['skinData'];
+		}
+		if (isset($additionalSkinData['skinGeomtryName'])) {
+			$skinGeomtryName = $additionalSkinData['skinGeomtryName'];
+		}
+		if (isset($additionalSkinData['skinGeomtryData'])) {
+			$skinGeomtryData = $additionalSkinData['skinGeomtryData'];
+		}		
 		if (empty($skinGeomtryName)) {
 			$skinGeomtryName = "geometry.humanoid.custom";
 		}
 		$this->putString($skinId);
-		$this->putString('{"geometry" : {"default" : "' . $skinGeomtryName . '"}}');
-		$width = 64;
-		$height = strlen($skinData) >> 8;
-		while ($height > $width) {
-			$width <<= 1;
-			$height >>= 1;
+		$this->putString(isset($additionalSkinData['SkinResourcePatch']) ? $additionalSkinData['SkinResourcePatch'] : '{"geometry" : {"default" : "' . $skinGeomtryName . '"}}');
+		if (isset($additionalSkinData['SkinImageHeight']) && isset($additionalSkinData['SkinImageWidth'])) {
+			$width = $additionalSkinData['SkinImageWidth'];
+			$height = $additionalSkinData['SkinImageHeight'];
+		} else {
+			$width = 64;
+			$height = strlen($skinData) >> 8;
+			while ($height > $width) {
+				$width <<= 1;
+				$height >>= 1;
+			}
 		}
 		$this->putLInt($width);
 		$this->putLInt($height);
 		$this->putString($skinData);
-		$this->putVarInt(0); //Animation Count
-		$this->putByte(0); // Is Premium Skin 
-		$this->putByte(0); // Is Persona Skin 
-		$this->putByte(0); // Is Persona Cape on Classic Skin 
+
+		if (isset($additionalSkinData['AnimatedImageData'])) {
+			$this->putLInt(count($additionalSkinData['AnimatedImageData']));
+			foreach ($additionalSkinData['AnimatedImageData'] as $animation) {
+				$this->putLInt($animation['ImageWidth']);
+				$this->putLInt($animation['ImageHeight']);
+				$this->putString($animation['Image']);
+				$this->putLInt($animation['Type']);
+				$this->putLFloat($animation['Frames']);
+			}
+		} else {
+			$this->putLInt(0);
+		}
+			
 		if (empty($capeData)) {
 			$this->putLInt(0);
 			$this->putLInt(0);
 			$this->putString('');
 		} else {
-			$width = 1;
-			$height = strlen($capeData) >> 2;
-			while ($height > $width) {
-				$width <<= 1;
-				$height >>= 1;
+			if (isset($additionalSkinData['CapeImageWidth']) && isset($additionalSkinData['CapeImageHeight'])) {
+				$width = $additionalSkinData['CapeImageWidth'];
+				$height = $additionalSkinData['CapeImageHeight'];
+			} else {
+				$width = 1;
+				$height = strlen($capeData) >> 2;
+				while ($height > $width) {
+					$width <<= 1;
+					$height >>= 1;
+				}
 			}
 			$this->putLInt($width);
 			$this->putLInt($height);
 			$this->putString($capeData);
 		}
+
 		$this->putString($skinGeomtryData); // Skin Geometry Data
-		$this->putString(''); // Serialized Animation Data
-		$this->putLInt(1);
+		$this->putString(isset($additionalSkinData['SkinAnimationData']) ? $additionalSkinData['SkinAnimationData'] : ''); // Serialized Animation Data
+
+		$this->putByte(isset($additionalSkinData['PremiumSkin']) ? $additionalSkinData['PremiumSkin'] : 0); // Is Premium Skin 
+		$this->putByte(isset($additionalSkinData['PersonaSkin']) ? $additionalSkinData['PersonaSkin'] : 0); // Is Persona Skin 
+		$this->putByte(isset($additionalSkinData['CapeOnClassicSkin']) ? $additionalSkinData['CapeOnClassicSkin'] : 0); // Is Persona Cape on Classic Skin 
+		
+		$this->putString(isset($additionalSkinData['CapeId']) ? $additionalSkinData['CapeId'] : '');
 		$uniqId = $skinId . $skinGeomtryName . "-" . microtime(true);
 		$this->putString($uniqId); // Full Skin ID		
 	}
-	
-	
-	public function getSerializedSkin($playerProtocol, &$skinId, &$skinData, &$skinGeomtryName, &$skinGeomtryData, &$capeData) {
+
+	public function getSerializedSkin($playerProtocol, &$skinId, &$skinData, &$skinGeomtryName, &$skinGeomtryData, &$capeData, &$additionalSkinData) {		
 		$skinId = $this->getString();
-		$geometryData = json_decode($this->getString(), true);
+		$additionalSkinData['SkinResourcePatch'] = $this->getString();
+		$geometryData = json_decode($additionalSkinData['SkinResourcePatch'], true);
 		$skinGeomtryName = isset($geometryData['geometry']['default']) ? $geometryData['geometry']['default'] : '';
-		$this->getLInt();
-		$this->getLInt();
+		
+		$additionalSkinData['SkinImageWidth'] = $this->getLInt();
+		$additionalSkinData['SkinImageHeight'] = $this->getLInt();
 		$skinData = $this->getString();
 		
-		$animationCount = $this->getVarInt();
+		$animationCount = $this->getLInt();
+		$additionalSkinData['AnimatedImageData'] = [];
 		for ($i = 0; $i < $animationCount; $i++) {
-			$this->getLInt();
-			$this->getLInt();
-			$this->getString();
-			$this->getLInt();
-			$this->getLFloat();
+			$additionalSkinData['AnimatedImageData'][] = [
+				'ImageWidth' => $this->getLInt(),
+				'ImageHeight' => $this->getLInt(),
+				'Image' => $this->getString(),
+				'Type' => $this->getLInt(),
+				'Frames' => $this->getLFloat(),
+			];
 		}
 		
-		$this->getByte();
-		$this->getByte();
-		$this->getByte();
-		
-		$this->getLInt();
-		$this->getLInt();
+		$additionalSkinData['CapeImageWidth'] = $this->getLInt();
+		$additionalSkinData['CapeImageHeight'] = $this->getLInt();
 		$capeData = $this->getString();
 		
 		$skinGeomtryData = $this->getString();
 		if (strpos($skinGeomtryData, 'null') === 0) {
 			$skinGeomtryData = '';
 		}
-		$this->getString();		
-		$this->getLInt();
-		$this->getString();		
+		$additionalSkinData['SkinAnimationData'] = $this->getString();
+
+		$additionalSkinData['PremiumSkin'] = $this->getByte();
+		$additionalSkinData['PersonaSkin'] = $this->getByte();
+		$additionalSkinData['CapeOnClassicSkin'] = $this->getByte();
+		
+		$additionalSkinData['CapeId'] = $this->getString();
+		$this->getString(); // Full Skin ID	
 	}
 
+	public function checkSkinData(&$skinData, &$skinGeomtryName, &$skinGeomtryData, &$additionalSkinData) {
+		if (empty($skinGeomtryName) && !empty($additionalSkinData['SkinResourcePatch'])) {
+			if (($jsonSkinResourcePatch = @json_decode($additionalSkinData['SkinResourcePatch'], true)) && isset($jsonSkinResourcePatch['geometry']['default'])) {
+				$skinGeomtryName = $jsonSkinResourcePatch['geometry']['default'];
+			}
+		} 
+		if (!empty($skinGeomtryName) && stripos($skinGeomtryName, 'geometry.') !== 0) {
+			if (!empty($skinGeomtryData) && ($jsonSkinData = @json_decode($skinGeomtryData, true))) {
+				foreach ($jsonSkinData as $key => $value) {
+					if ($key == $skinGeomtryName) {
+						unset($jsonSkinData[$key]);
+						$jsonSkinData['geometry.' . $key] = $value;
+						$skinGeomtryName = 'geometry.' . $key;
+						$skinGeomtryData = json_encode($jsonSkinData);
+						if (!empty($additionalSkinData['SkinResourcePatch']) && ($jsonSkinResourcePatch = @json_decode($additionalSkinData['SkinResourcePatch'], true)) && !empty($jsonSkinResourcePatch['geometry'])) {
+							foreach ($jsonSkinResourcePatch['geometry'] as &$geometryName) {
+								if ($geometryName == $key) {
+									$geometryName = $skinGeomtryName;
+									$additionalSkinData['SkinResourcePatch'] = json_encode($jsonSkinResourcePatch);
+									break;
+								}
+							}
+						}						
+						break;
+					}
+				}
+			}
+		}
+		if (isset($additionalSkinData['PersonaSkin']) && $additionalSkinData['PersonaSkin']) {
+			static $defaultSkins = [];
+			if (empty($defaultSkins)) {
+				$defaultSkins[] = [file_get_contents(__DIR__ . "/defaultSkins/Alex.dat"), 'geometry.humanoid.customSlim'];
+				$defaultSkins[] = [file_get_contents(__DIR__ . "/defaultSkins/Steve.dat"), 'geometry.humanoid.custom'];
+			}
+			$additionalSkinData['skinData'] = $skinData;
+			$additionalSkinData['skinGeomtryName'] = $skinGeomtryName;
+			$additionalSkinData['skinGeomtryData'] = $skinGeomtryData;
+			$randomSkinData =  $defaultSkins[array_rand($defaultSkins)];
+			$skinData = $randomSkinData[0];
+			$skinGeomtryData = '';
+			$skinGeomtryName = $randomSkinData[1];
+		} elseif (in_array($skinGeomtryName, ['geometry.humanoid.customSlim', 'geometry.humanoid.custom'])) {
+			$skinGeomtryData = '';
+			$additionalSkinData = [];
+		}
+	}
+	
+	public function prepareGeometryDataForOld($skinGeometryData) {
+		if (!empty($skinGeometryData)) {
+			if (($tempData = @json_decode($skinGeometryData, true))) {
+				unset($tempData["format_version"]);
+				return json_encode($tempData);
+			}
+		}
+		return $skinGeometryData;
+	}
+	
 }
