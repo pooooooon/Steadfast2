@@ -1054,6 +1054,8 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 				}
 				break;
 		}
+		$packet->setDeviceId($this->getDeviceOS());
+				
 		$packet->encode($this->protocol);
 		$this->packetQueue[] = $packet->getBuffer();
 		$packet->senderSubClientID = 0;
@@ -1931,7 +1933,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 						$this->actionsNum['CRACK_BLOCK'] = 0;
 						if (!$this->isCreative()) {
 							$block = $this->level->getBlock(new Vector3($packet->x, $packet->y, $packet->z));
-							$breakTime = ceil($block->getBreakTime($this->inventory->getItemInHand()) * 20);
+							$breakTime = ceil($this->getBreakTime($block) * 20);
 							$fireBlock = $block->getSide($packet->face);
 							if ($fireBlock->getId() === Block::FIRE) {
 								$fireBlock->onUpdate(Level::BLOCK_UPDATE_TOUCH);
@@ -4346,7 +4348,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 		$isNeedSendPackets = $this->actionsNum['CRACK_BLOCK'] % 4 == 0;
 		$this->actionsNum['CRACK_BLOCK']++;
 
-		$breakTime = ceil($block->getBreakTime($this->inventory->getItemInHand()) * 20);
+		$breakTime = ceil($this->getBreakTime($block) * 20);
 		if ($this->actionsNum['CRACK_BLOCK'] >= $breakTime) {
 			$this->breakBlock($blockPos);
 		}
@@ -4364,6 +4366,17 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			Server::broadcastPacket($recipients, $pk);
 			$this->sendSound(LevelSoundEventPacket::SOUND_HIT, $blockPos, MultiversionEntity::ID_NONE, $block->getId(), $recipients);
 		}
+	}
+
+	public function getBreakTime(Block $block, Item $item = null) {	
+		$item = $item??$this->inventory->getItemInHand();	
+		$breakTime = $block->getBreakTime($item);
+		$blockUnderPlayer = $this->level->getBlock(new Vector3(floor($this->x), floor($this->y) - 1, floor($this->z)));
+
+		if ($blockUnderPlayer->getId() == Block::LADDER || $blockUnderPlayer->getId() == Block::VINE || !$this->onGround) {					
+			$breakTime *= 5;
+		}	
+		return $breakTime;
 	}
 
 	/**
@@ -4862,6 +4875,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$pk->newSkinGeometryName = $this->skinGeometryName;
 			$pk->newSkinGeometryData = $this->skinGeometryData;
 			$pk->additionalSkinData = $this->additionalSkinData;
+			$pk->setDeviceId($this->getDeviceOS());
 			$this->server->batchPackets($this->server->getOnlinePlayers(), [$pk]);
 		}
 	}
@@ -4972,6 +4986,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$entry[9] = $player->getDeviceOS();
 			$entry[10] = $player->additionalSkinData;
 			$pk->entries[] = $entry;
+			$pk->setDeviceId($player->getDeviceOS());
 			// collect player with different packet logic
 			if ($player !== $this) {
 				if ($player->getOriginalProtocol() >= ProtocolInfo::PROTOCOL_140) {
@@ -4987,12 +5002,14 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$pk = new PlayerListPacket();
 			$pk->type = PlayerListPacket::TYPE_ADD;
 			$pk->entries[] = [$this->getUniqueId(), $this->getId(), $this->getName(), $this->getSkinName(), $this->getSkinData(), $this->getCapeData(), $this->getSkinGeometryName(), $this->getSkinGeometryData(), $this->getXUID(), $this->getDeviceOS(), $this->additionalSkinData];
+			$pk->setDeviceId($this->getDeviceOS());
 			$this->server->batchPackets($playersWithProto140, [$pk]);
 		}
 		if (count($otherPlayers) > 0) {
 			$pk = new PlayerListPacket();
 			$pk->type = PlayerListPacket::TYPE_ADD;
 			$pk->entries[] = [$this->getUniqueId(), $this->getId(), $this->getName(), $this->getSkinName(), $this->getSkinData(), $this->getCapeData(), $this->getSkinGeometryName(), $this->getSkinGeometryData()];
+			$pk->setDeviceId($this->getDeviceOS());
 			$this->server->batchPackets($otherPlayers, [$pk]);
 		}
 		$this->playerListIsSent = true;
