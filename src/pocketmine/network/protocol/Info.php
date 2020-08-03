@@ -90,7 +90,9 @@ interface Info{
 	const PROTOCOL_400 = 400; // 1.16.0.51
 	const PROTOCOL_406 = 406; // 1.16.0.63
 	const PROTOCOL_407 = 407; // 1.16.0.64
-	const PROTOCOL_408 = 408; // ?
+	const PROTOCOL_408 = 408; // 1.16.20.54
+	const PROTOCOL_409 = 409: // 1.16.100.50
+	
 	/** OUTDATED (supporting will be removed with next release, may didn't work properly)*/
 	const PROTOCOL_120 = 120; // 1.2.0.xx (beta)
 //	const PROTOCOL_121 = 121; // 1.2.0.xx (beta)
