@@ -971,7 +971,6 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$packet->senderSubClientID = $this->subClientId;
 			return $this->parent->dataPacket($packet);
 		}
-		
 		switch($packet->pname()){
 			case 'INVENTORY_CONTENT_PACKET':
 				$queueKey = $packet->pname() . $packet->inventoryID;
@@ -1103,7 +1102,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			return false;
 		}
 
-		if ($this->subClientId > 0 && $this->parent != null) {
+        if ($this->subClientId > 0 && $this->parent != null) {
 			$packet->senderSubClientID = $this->subClientId;
 			return $this->parent->dataPacket($packet);
 		}
@@ -3311,7 +3310,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$pk = new CreativeItemsListPacket();
 			$pk->groups = Item::getCreativeGroups();
 			$pk->items = Item::getCreativeItems();
-			$this->dataPacket($pk);			
+			$this->dataPacket($pk);
 		} else {
 			$slots = [];
 			foreach(Item::getCreativeItems() as $item){
@@ -3328,8 +3327,6 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 		$this->sendSelfData();
 		$this->updateSpeed($this->movementSpeed);
 		$this->sendFullPlayerList();
-//		$this->updateExperience(0, 100);
-//		$this->getInventory()->addItem(Item::get(Item::ENCHANTMENT_TABLE), Item::get(Item::DYE, 4, 64), Item::get(Item::IRON_AXE), Item::get(Item::IRON_SWORD));
 	}
 
 
@@ -5110,7 +5107,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$buffer .= Binary::writeVarInt(strlen($pkBuf)) . $pkBuf;
 		}
 		$pk = new BatchPacket();
-		$pk->payload = zlib_encode($buffer, ZLIB_ENCODING_DEFLATE, 7);
+		$pk->payload = zlib_encode($buffer, self::getCompressAlg($this->originalProtocol), 7);
 		$this->dataPacket($pk);
 	}
 
@@ -5238,6 +5235,13 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			return true;
 		}
 		return false;
+	}
+
+	public static function getCompressAlg($protocol) {		
+		if ((int)$protocol >= 406) {
+			return ZLIB_ENCODING_RAW;
+		}
+		return ZLIB_ENCODING_DEFLATE;
 	}
 
 }
