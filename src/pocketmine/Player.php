@@ -68,6 +68,8 @@ use pocketmine\event\player\PlayerRespawnAfterEvent;
 use pocketmine\event\player\PlayerToggleSneakEvent;
 use pocketmine\event\player\PlayerToggleSprintEvent;
 use pocketmine\event\server\DataPacketSendEvent;
+use pocketmine\form\Form;
+use pocketmine\form\FormValidationException;
 use pocketmine\event\TextContainer;
 use pocketmine\event\Timings;
 use pocketmine\inventory\BaseTransaction;
@@ -368,6 +370,11 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 	protected $clientVersion = '';
 
 	protected $originalProtocol = 0;
+
+	/** @var int */
+	protected $formIdCounter = 0;
+	/** @var Form[] */
+	protected $forms = [];
 
 	protected $lastModalId = 1;
 
@@ -2418,6 +2425,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			/** @minProtocol 120 */
 			case 'MODAL_FORM_RESPONSE_PACKET':
 				$this->checkModal($packet->formId, json_decode($packet->data, true));
+                                                         $this->onFormSubmit($packet->formId, json_decode($packet->data, true));
 				break;
 			/** @minProtocol 120 */
 			case 'PURCHASE_RECEIPT_PACKET':
@@ -4570,6 +4578,41 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 
 	public function getOriginalProtocol() {
 		return $this->originalProtocol;
+	}
+
+	public function sendForm(Form $form) : void {
+		$id = $this->formIdCounter++;
+		$pk = new ShowModalFormPacket();
+		$pk->formId = $id;
+		$pk->data = json_encode($form);
+		if ($pk->data === false) {
+
+			throw new \InvalidArgumentException("Failed to encode form JSON: " . json_last_error_msg());
+
+		}
+		if($this->dataPacket($pk)){
+
+			$this->forms[$id] = $form;
+		}
+	}
+
+
+	public function onFormSubmit(int $formId, $responseData) : bool{
+		if(!isset($this->forms[$formId])){
+			$this->server->getLogger()->debug("Got unexpected response for form $formId");
+			return false;
+		}
+
+		try{
+			$this->forms[$formId]->handleResponse($this, $responseData);
+		}catch(FormValidationException $e){
+			$this->server->getLogger()->critical("Failed to validate form " . get_class($this->forms[$formId]) . ": " . $e->getMessage());
+			$this->server->getLogger()->logException($e);
+		}finally{
+			unset($this->forms[$formId]);
+		}
+
+		return true;
 	}
 
 	/**
