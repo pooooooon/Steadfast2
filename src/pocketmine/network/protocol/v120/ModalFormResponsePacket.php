@@ -14,7 +14,8 @@ class ModalFormResponsePacket extends PEPacket {
 	public $data;
 
 	public function encode($playerProtocol) {
-		
+		$this->putVarInt($this->formId);
+		$this->putString($this->formData);		
 	}
 
 	/**

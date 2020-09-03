@@ -20,7 +20,8 @@ class ShowModalFormPacket extends PEPacket {
 	}
 
 	public function decode($playerProtocol) {
-		
+		$this->formId = $this->getVarInt();
+		$this->formData = $this->getString();
 	}
 
 }
