@@ -2,7 +2,9 @@
 
 namespace pocketmine\network\protocol\v310;
 
+use pocketmine\utils\Binary;
 use pocketmine\network\protocol\Info310;
+use pocketmine\network\protocol\types\ScorePacketEntry;
 use pocketmine\network\protocol\PEPacket;
 
 class SetScorePacket extends PEPacket {
@@ -11,38 +13,58 @@ class SetScorePacket extends PEPacket {
 	const PACKET_NAME = "SET_SCORE_PACKET";
 	const TYPE_CHANGE = 0;
 	const TYPE_REMOVE = 1;
-	const ENTRY_TYPE_PLAYER = 1;
-	const ENTRY_TYPE_ENTITY = 2;
-	const ENTRY_TYPE_FAKE_PLAYER = 3;
 
 	public $entries = [];
 	public $type;
 
-	public function encode($playerProtocol) {
+	public function encode($playerProtocol){
 		$this->reset($playerProtocol);
 		$this->putByte($this->type);
-		$this->putVarInt(count($this->entries));
-		foreach ($this->entries as $entry) {
-			$this->putSignedVarInt($entry['scoreboardId']);
-			$this->putString($entry['objectiveName']);
-			$this->putLInt($entry['score']);
-			if ($this->type !== self::TYPE_REMOVE) {
-				$this->putByte($entry['type']);
-				switch ($entry['type']) {
-					case self::ENTRY_TYPE_PLAYER:
-					case self::ENTRY_TYPE_ENTITY:
-						$this->putVarInt($entry['id']);
+		$this->putSignedVarInt(count($this->entries));
+		foreach($this->entries as $entry){
+			$this->putVarInt($entry->scoreboardId);
+			$this->putString($entry->objectiveName);
+			$this->putLInt($entry->score);
+			if($this->type !== self::TYPE_REMOVE){
+				$this->putByte($entry->type);
+				switch($entry->type){
+					case ScorePacketEntry::TYPE_PLAYER:
+					case ScorePacketEntry::TYPE_ENTITY:
+						$this->putEntityUniqueId($entry->entityUniqueId);
 						break;
-					case self::ENTRY_TYPE_FAKE_PLAYER:
-						$this->putString($entry['customName']);
+					case ScorePacketEntry::TYPE_FAKE_PLAYER:
+						$this->putString($entry->customName);
 						break;
+					default:
+						throw new \InvalidArgumentException("Unknown entry type $entry->type");
 				}
 			}
 		}
 	}
 
-	public function decode($playerProtocol) {
-		
+	public function decode($playerProtocol){
+		$this->type = $this->getByte();
+		for($i = 0, $i2 = $this->getSignedVarInt(); $i < $i2; ++$i){
+			$entry = new ScorePacketEntry();
+			$entry->scoreboardId = $this->getVarInt();
+			$entry->objectiveName = $this->getString();
+			$entry->score = $this->getLInt();
+			if($this->type !== self::TYPE_REMOVE){
+				$entry->type = $this->getByte();
+				switch($entry->type){
+					case ScorePacketEntry::TYPE_PLAYER:
+					case ScorePacketEntry::TYPE_ENTITY:
+						$entry->entityUniqueId = $this->getEntityUniqueId();
+						break;
+					case ScorePacketEntry::TYPE_FAKE_PLAYER:
+						$entry->customName = $this->getString();
+						break;
+					default:
+						throw new \UnexpectedValueException("Unknown entry type $entry->type");
+				}
+			}
+			$this->entries[] = $entry;
+		}
 	}
 
 }
