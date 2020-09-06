@@ -10,8 +10,8 @@ SteadMP is a project created by me for adding some of the latest PMMP API codes 
 SteadMP is a fork of Steadfast2 and spoon of PMMP and other Pocketmine related softwares.
 
 ##Already added features
-- Support for pocketmine's FormAPI plugin [x]
-- Support for MyStats Scoreboard API from VixikHD(You just need to change packet usages to steadfast's one) [x]
+- [x] Support for pocketmine's FormAPI plugin
+- [x] Support for MyStats Scoreboard API from VixikHD(You just need to change packet usages to steadfast's one)
 
 ## Known bugs
 
