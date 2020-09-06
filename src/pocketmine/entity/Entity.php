@@ -88,6 +88,8 @@ abstract class Entity extends Location implements Metadatable{
 	const DATA_ANIMAL_VARIANT = 2; // type: int
 	const DATA_COLOR = 3; // type: byte
 	const DATA_NAMETAG = 4; // type: string
+	public const DATA_OWNER_EID = 5; // type: long
+	public const DATA_TARGET_EID = 6; //type: long
 	const DATA_AIR = 7; //air under water type: short
 	const DATA_POTION_COLOR = 8; // type: int data: rgb
 	const DATA_POTION_AMBIENT = 9; //is potion ambient or not
@@ -109,6 +111,7 @@ abstract class Entity extends Location implements Metadatable{
 	
 	const DATA_EXPLODE_TIMER = 56;
 	const DATA_POSE_INDEX = 79;
+	const DATA_SCORE_TAG = 83; //string
 	
 	const DATA_SILENT = 4;
 	const DATA_LEAD = 24; //remove
@@ -188,6 +191,8 @@ abstract class Entity extends Location implements Metadatable{
 	protected $effects = [];
 
 	protected $id;
+	/** @var DataPropertyManager */
+	protected $propertyManager;
 	
 	protected $dataFlags = 0;
 	protected $dataProperties = [	
@@ -320,6 +325,8 @@ abstract class Entity extends Location implements Metadatable{
 			$this->namedtag->FallDistance = new FloatTag("FallDistance", 0);
 		}
 		$this->fallDistance = $this->namedtag["FallDistance"];
+		$this->propertyManager = new DataPropertyManager();
+		$this->propertyManager->setFloat(self::DATA_SCALE, 1);
 
 		if(!isset($this->namedtag->Fire)){
 			$this->namedtag->Fire = new ShortTag("Fire", 0);
@@ -382,6 +389,43 @@ abstract class Entity extends Location implements Metadatable{
 	public function setNameTagVisible($value = true){
 		$this->setDataFlag(Entity::DATA_FLAGS, Entity::DATA_FLAG_SHOW_NAMETAG, $value ? true : false);
 //		$this->setDataProperty(self::DATA_SHOW_NAMETAG, self::DATA_TYPE_BYTE, $value ? 1 : 0);
+	}
+
+
+	public function getScoreTag() : ?string{
+		return $this->propertyManager->getString(self::DATA_SCORE_TAG);
+	}
+
+	public function setScoreTag(string $score) : void{
+		$this->propertyManager->setString(self::DATA_SCORE_TAG, $score);
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function isImmobile() : bool{
+		return $this->getDataFlag(self::DATA_FLAGS, self::DATA_FLAG_NOT_MOVE);
+	}
+
+	/**
+	 * @param bool $value
+	 */
+	public function setImmobile($value = true){
+		$this->setDataFlag(self::DATA_FLAGS, self::DATA_FLAG_NOT_MOVE, $value);
+	}
+
+	/**
+	 * @return mixed
+	 */
+	public function getScale(){
+		return $this->getDataProperty(self::DATA_SCALE, self::DATA_TYPE_FLOAT);
+	}
+
+	/**
+	 * @param $scale
+	 */
+	public function setScale($scale){
+		$this->setDataProperty(self::DATA_SCALE, self::DATA_TYPE_FLOAT, $scale);
 	}
 
 	public function isSneaking(){
@@ -800,6 +844,52 @@ abstract class Entity extends Location implements Metadatable{
 		return !$this->justCreated && $entity !== $this;
 	}
 
+	public function getOwningEntityId() : ?int{
+		return $this->propertyManager->getLong(self::DATA_OWNER_EID);
+	}
+
+	public function getOwningEntity() : ?Entity{
+		$eid = $this->getOwningEntityId();
+		if($eid !== null){
+			return $this->server->findEntity($eid);
+		}
+
+		return null;
+	}
+
+	public function setOwningEntity(?Entity $owner) : void{
+		if($owner === null){
+			$this->propertyManager->removeProperty(self::DATA_OWNER_EID);
+		}elseif($owner->closed){
+			throw new \InvalidArgumentException("Supplied owning entity is garbage and cannot be used");
+		}else{
+			$this->propertyManager->setLong(self::DATA_OWNER_EID, $owner->getId());
+		}
+	}
+
+	public function getTargetEntityId() : ?int{
+		return $this->propertyManager->getLong(self::DATA_TARGET_EID);
+	}
+
+	public function getTargetEntity() : ?Entity{
+		$eid = $this->getTargetEntityId();
+		if($eid !== null){
+			return $this->server->findEntity($eid);
+		}
+
+		return null;
+	}
+
+	public function setTargetEntity(?Entity $target) : void{
+		if($target === null){
+			$this->propertyManager->removeProperty(self::DATA_TARGET_EID);
+		}elseif($target->closed){
+			throw new \InvalidArgumentException("Supplied target entity is garbage and cannot be used");
+		}else{
+			$this->propertyManager->setLong(self::DATA_TARGET_EID, $target->getId());
+		}
+	}
+
 	protected function checkObstruction($x, $y, $z) {
 		$i = Math::floorFloat($x);
 		$j = Math::floorFloat($y);
@@ -861,6 +951,10 @@ abstract class Entity extends Location implements Metadatable{
 		}
 
 		return false;
+	}
+
+	public function getDataPropertyManager() : DataPropertyManager{
+		return $this->propertyManager;
 	}
 
 	public function entityBaseTick($tickDiff = 1) {
