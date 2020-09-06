@@ -3263,7 +3263,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 			$this->inventory->setHeldItemSlot($this->inventory->getHotbarSlotIndex(0));
 		}
 
-		if ($this->spawnPosition === null and isset($this->namedtag->SpawnLevel) and ( $level = $this->server->getLevelByName($this->namedtag["SpawnLevel"])) instanceof Level) {
+		if($this->spawnPosition === null and isset($this->namedtag->SpawnLevel) and ($level = $this->server->getLevelByName($this->namedtag["SpawnLevel"])) instanceof Level){
 			$this->spawnPosition = new Position($this->namedtag["SpawnX"], $this->namedtag["SpawnY"], $this->namedtag["SpawnZ"], $level);
 		}
 
@@ -3652,7 +3652,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
         return $this->xuid;
     }
 
-	public function setTitle($text, $subtext = '', $time = 36000) {
+	public function setTitle($text, $subtext = '', $time = 3600) {
 		if ($this->protocol >= Info::PROTOCOL_290) { //hack for 1.7.x
 			$this->clearTitle();
 			$this->titleData = ['text' => !empty($text) ? $text : ' ', 'subtext' => $subtext, 'time' => $time, 'holdTickCount' => 5];
@@ -3662,7 +3662,7 @@ class Player extends Human implements CommandSender, InventoryHolder, IPlayer {
 
 	}
 
-	protected function sendTitle($text, $subtext = '', $time = 36000) {
+	protected function sendTitle($text, $subtext = '', $time = 3600) {
 		$pk = new SetTitlePacket();
 		$pk->type = SetTitlePacket::TITLE_TYPE_TIMES;
 		$pk->text = "";
