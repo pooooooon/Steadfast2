@@ -1,4 +1,4 @@
-#  <img src="https://raw.githubusercontent.com/PMMP-To-Stead/Steadfast2/master/steadmplogo.png" alt="SteadMP logo" title="Gofight" align="center" height="120" />
+#  <img src="https://raw.githubusercontent.com/PMMP-To-Stead/Steadfast2/master/steadmplogo.png" alt="SteadMP logo" title="Gofight" align="center" height="500" />
 # SteadMP Minecraft PE Server Software
 
 ## Introduction
