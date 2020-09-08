@@ -22,112 +22,160 @@
 
 namespace pocketmine\item;
 
+use pocketmine\item\enchantment\Enchantment;
 use pocketmine\nbt\tag\Compound;
 use pocketmine\nbt\tag\IntTag;
-use pocketmine\item\enchantment\Enchantment;
+use pocketmine\utils\Color;
 
-abstract class Armor extends Item{
-	
-	public function __construct($id, $meta = 0, $count = 1, $name = "Unknown", $obtainTime = null) {
-		parent::__construct($id, $meta, $count, $name, $obtainTime);
-		$this->checkDamage();
-	}
+abstract class Armor extends Item {
+	const TIER_LEATHER = 1;
+	const TIER_GOLD = 2;
+	const TIER_CHAIN = 3;
+	const TIER_IRON = 4;
+	const TIER_DIAMOND = 5;
 
-	public function getMaxStackSize(){
+	const TYPE_HELMET = 0;
+	const TYPE_CHESTPLATE = 1;
+	const TYPE_LEGGINGS = 2;
+	const TYPE_BOOTS = 3;
+
+	/**
+	 * @return int
+	 */
+	public function getMaxStackSize() : int{
 		return 1;
 	}
-	
-	public function removeDurability($count = 1) {
-		$ench = $this->getEnchantment(Enchantment::TYPE_UNBREAKING);
-		if (!is_null($ench)) {
-			$enchLevel = $ench->getLevel();
-			$chance = 60 + 40 / ($enchLevel + 1);
-			if (mt_rand(1, 100) > $chance) {
-				return;
-			}
-		}
-		$this->meta += $count;
-		$this->checkDamage();
-	}
-	
+
+	/**
+	 * @return bool
+	 */
 	public function isArmor(){
 		return true;
 	}
-	
-	public function setDamage($meta) {
-		parent::setDamage($meta);
-		$this->checkDamage();
+
+	/**
+	 *
+	 * @param Item $object
+	 * @param int  $cost
+	 *
+	 * @return bool
+	 */
+	public function useOn($object, int $cost = 1){
+		if($this->isUnbreakable()){
+			return true;
+		}
+		$unbreakings = [
+			0 => 100,
+			1 => 80,
+			2 => 73,
+			3 => 70
+		];
+		$unbreakingl = $this->getEnchantmentLevel(Enchantment::TYPE_MINING_DURABILITY);
+		if(mt_rand(1, 100) > $unbreakings[$unbreakingl]){
+			return true;
+		}
+		$this->setDamage($this->getDamage() + $cost);
+		if($this->getDamage() >= $this->getMaxDurability()){
+			$this->setCount(0);
+		}
+		return true;
 	}
 
-	public function checkDamage() {
-		if ($this->meta == 0) {
-			if ($this->hasCompound()) {
-				$tag = $this->getNamedTag();
-				if (isset($tag->Damage)) {
-					unset($tag->Damage);
-					parent::setCompound($tag);
-				}
-			}
-		} else {
-			if (!$this->hasCompound()) {
-				$tag = new Compound("", []);
-			} else {
-				$tag = $this->getNamedTag();
-			}
-			$tag->Damage = new IntTag("Damage", $this->meta);
-			parent::setCompound($tag);
-		}
-	}
-	
-	public function setCompound($tags) {
-		if($tags instanceof Compound){
-			if (isset($tags['Damage'])) {
-				$this->meta = $tags['Damage'];
-			}
-		}
-		parent::setCompound($tags);
-		$this->checkDamage();
-		return $this;
-	}
-	
 	/**
-	 * The following types of damage are reduced by armor and, consequently, damage the armor itself:
-	 *  - Direct attacks from mobs and players
-	 *  - This includes the Strength effect and the Sharpness enchantment.
-	 *  - Getting hit with an arrow
-	 *  - This includes extra damage from enchantments.
-	 *  - Getting hit with a fireball from a ghast or blaze, a fire charge, or ender acid
-	 *  - Touching fire, lava or cacti
-	 *  - Explosions
-	 *  - Getting struck by lightning
-	 *  - Getting hit with a falling anvil
-	 *  - Getting hit by chicken eggs
-	 *  - Getting hit with a fishing rod lure
-	 * 
-	 * The following types of damage are not reduced by armor and have no effect on the armor itself:
-	 *  - Ongoing damage from being on fire
-	 *  - Suffocating inside a block
-	 *  - Drowning in water
-	 *  - Starvation
-	 *  - Falling (including ender pearls)
-	 *  - Falling to the void
-	 *  - Status effects
-	 *  - Instant damage from a potion of Harming
-	 *  - /kill
-	 *  - Standing next to where lightning strikes.
-	 *  - Getting hit by snowballs.
-	 * 
-	 * However, all sources of damage will damage all armor pieces worn in Pocket Edition.
-	 * 
-	 * Any hit from a damage source that can be blocked by armor will remove 
-	 * one point of durability from each piece of armor worn for every 4 (2 hearts) 
-	 * of incoming damage (rounded down, but never below 1). 
-	 * 
-	 *  Material	Helmet	Chestplate	Leggings	Boots
-	 *	Leather		56		81			76			66
-	 *	Golden		78		113			106			92
-	 *	Chain/Iron	166		241			226			196
-	 *	Diamond		364		529			496			430
+	 * @return bool
 	 */
-	
+	public function isUnbreakable(){
+		$tag = $this->getNamedTagEntry("Unbreakable");
+		return $tag !== null and $tag->getValue() > 0;
+	}
+
+	/**
+	 * @param Color $color
+	 */
+	public function setCustomColor(Color $color){
+		if(($hasTag = $this->hasCompound())){
+			$tag = $this->getNamedTag();
+		}else{
+			$tag = new Compound("", []);
+		}
+		$tag->customColor = new IntTag("customColor", $color->getColorCode());
+		$this->setCompound($tag);
+	}
+
+	/**
+	 * @return mixed|null
+	 */
+	public function getCustomColor(){
+		if(!$this->hasCompound()) return null;
+		$tag = $this->getNamedTag();
+		if(isset($tag->customColor)){
+			return $tag["customColor"];
+		}
+		return null;
+	}
+
+	public function clearCustomColor(){
+		if(!$this->hasCompound()) return;
+		$tag = $this->getNamedTag();
+		if(isset($tag->customColor)){
+			unset($tag->customColor);
+		}
+		$this->setCompound($tag);
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function getArmorTier(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function getArmorType(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function getMaxDurability(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function getArmorValue(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function isHelmet(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function isChestplate(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function isLeggings(){
+		return false;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public function isBoots(){
+		return false;
+	}
 }

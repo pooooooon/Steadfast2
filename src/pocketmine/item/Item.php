@@ -1905,26 +1905,6 @@ class Item{
 
 		return $this;
 	}
-	
-	public function setCustomColor($colorCode){	
-		if(!$this->hasCompound()){
-			if (!is_int($colorCode)) {
-				return $this;
-			}
-			$tag = new Compound("", []);
-		}else{
-			$tag = $this->getNamedTag();
-		}
-		if (!is_int($colorCode)) {
-			unset($tag->customColor);			
-		} else {
-			$tag->customColor = new IntTag("customColor", $colorCode);
-		}
-		
-		$this->setCompound($tag);
-
-		return $this;
-	}
 
 	public function clearCustomName(){
 		if(!$this->hasCompound()){
