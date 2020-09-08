@@ -786,39 +786,35 @@ class Level implements ChunkManager, Metadatable{
 		return [];
 	}
 
-	/**
-	 * @param bool $force
-	 *
-	 * @return bool
-	 */
-	public function save($force = false){
+    /**
+     * @param bool $force
+     *
+     * @return bool
+     */
+    public function save(bool $force = false): bool {
 
-		if($this->getAutoSave() === false and $force === false){
-			return false;
-		}
+        if (!$this->getAutoSave() and !$force) {
+            return false;
+        }
 
-		$this->server->getPluginManager()->callEvent($ev = new LevelSaveEvent($this));
-		if($ev->isCancelled())
-			return false;
+        $this->server->getPluginManager()->callEvent(new LevelSaveEvent($this));
+        $this->saveChunks();
+        if ($this->provider instanceof BaseLevelProvider) {
+            $this->provider->saveLevelData();
+        }
 
-		$this->provider->setTime((int) $this->time);
-		$this->saveChunks();
-		if($this->provider instanceof BaseLevelProvider){
-			$this->provider->saveLevelData();
-		}
+        return true;
+    }
 
-		return true;
-	}
-
-	public function saveChunks(){
-		foreach($this->chunks as $chunk){
-			if($chunk->hasChanged()){
-				$this->provider->setChunk($chunk->getX(), $chunk->getZ(), $chunk);
-				$this->provider->saveChunk($chunk->getX(), $chunk->getZ());
-				$chunk->setChanged(false);
-			}
-		}
-	}
+    public function saveChunks() {
+        foreach ($this->chunks as $chunk) {
+            if ($chunk->hasChanged() and $chunk->isGenerated()) {
+                $this->provider->setChunk($chunk->getX(), $chunk->getZ(), $chunk);
+                $this->provider->saveChunk($chunk->getX(), $chunk->getZ());
+                $chunk->setChanged(false);
+            }
+        }
+    }
 
 	/**
 	 * @param Vector3 $pos
@@ -2246,32 +2242,23 @@ class Level implements ChunkManager, Metadatable{
 		}
 	}
 
+	/**
+	 * @return void
+	 */
 	public function doChunkGarbageCollection(){
-		if(!$this->isFrozen) {
-			//$this->timings->doChunkGC->startTiming();
 
-			$X = null;
-			$Z = null;
-
-			foreach($this->chunks as $index => $chunk){
-				if(!isset($this->unloadQueue[$index]) and (!isset($this->usedChunks[$index]) or count($this->usedChunks[$index]) === 0)){					
-					self::getXZ($index, $X, $Z);
-					if(!$this->isSpawnChunk($X, $Z)){
-						$this->unloadChunkRequest($X, $Z, true);
-					}
+		foreach($this->chunks as $index => $chunk){
+			if(!isset($this->unloadQueue[$index])){
+				 $X = ($index >> 32);  $Z = ($index & 0xFFFFFFFF) << 32 >> 32;
+				if(!$this->isSpawnChunk($X, $Z)){
+					$this->unloadChunkRequest($X, $Z, true);
 				}
 			}
-
-			foreach($this->provider->getLoadedChunks() as $chunk){
-				if(!isset($this->chunks[self::chunkHash($chunk->getX(), $chunk->getZ())])){
-					$this->provider->unloadChunk($chunk->getX(), $chunk->getZ(), false);
-				}
-			}
-
-			$this->provider->doGarbageCollection();
-
-			//$this->timings->doChunkGC->stopTiming();
+			$chunk->collectGarbage();
 		}
+
+		$this->provider->doGarbageCollection();
+
 	}
 
 	protected function unloadChunks(){
