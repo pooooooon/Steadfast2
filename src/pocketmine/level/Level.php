@@ -2242,25 +2242,6 @@ class Level implements ChunkManager, Metadatable{
 		}
 	}
 
-	/**
-	 * @return void
-	 */
-	public function doChunkGarbageCollection(){
-
-		foreach($this->chunks as $index => $chunk){
-			if(!isset($this->unloadQueue[$index])){
-				 $X = ($index >> 32);  $Z = ($index & 0xFFFFFFFF) << 32 >> 32;
-				if(!$this->isSpawnChunk($X, $Z)){
-					$this->unloadChunkRequest($X, $Z, true);
-				}
-			}
-			$chunk->collectGarbage();
-		}
-
-		$this->provider->doGarbageCollection();
-
-	}
-
 	protected function unloadChunks(){
 		if(count($this->unloadQueue) > 0 && !$this->isFrozen){
 			$X = null;
