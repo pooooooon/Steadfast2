@@ -88,8 +88,8 @@ abstract class Entity extends Location implements Metadatable{
 	const DATA_ANIMAL_VARIANT = 2; // type: int
 	const DATA_COLOR = 3; // type: byte
 	const DATA_NAMETAG = 4; // type: string
-	public const DATA_OWNER_EID = 5; // type: long
-	public const DATA_TARGET_EID = 6; //type: long
+    const DATA_OWNER_EID = 5; // type: long
+	const DATA_TARGET_EID = 6; //type: long
 	const DATA_AIR = 7; //air under water type: short
 	const DATA_POTION_COLOR = 8; // type: int data: rgb
 	const DATA_POTION_AMBIENT = 9; //is potion ambient or not
@@ -392,7 +392,7 @@ abstract class Entity extends Location implements Metadatable{
 	}
 
 
-	public function getScoreTag() : ?string{
+	public function getScoreTag() : string{
 		return $this->propertyManager->getString(self::DATA_SCORE_TAG);
 	}
 
@@ -844,11 +844,11 @@ abstract class Entity extends Location implements Metadatable{
 		return !$this->justCreated && $entity !== $this;
 	}
 
-	public function getOwningEntityId() : ?int{
+	public function getOwningEntityId() : int{
 		return $this->propertyManager->getLong(self::DATA_OWNER_EID);
 	}
 
-	public function getOwningEntity() : ?Entity{
+	public function getOwningEntity() : Entity{
 		$eid = $this->getOwningEntityId();
 		if($eid !== null){
 			return $this->server->findEntity($eid);
@@ -857,7 +857,7 @@ abstract class Entity extends Location implements Metadatable{
 		return null;
 	}
 
-	public function setOwningEntity(?Entity $owner) : void{
+	public function setOwningEntity(Entity $owner) : void{
 		if($owner === null){
 			$this->propertyManager->removeProperty(self::DATA_OWNER_EID);
 		}elseif($owner->closed){
@@ -867,11 +867,11 @@ abstract class Entity extends Location implements Metadatable{
 		}
 	}
 
-	public function getTargetEntityId() : ?int{
+	public function getTargetEntityId() : int{
 		return $this->propertyManager->getLong(self::DATA_TARGET_EID);
 	}
 
-	public function getTargetEntity() : ?Entity{
+	public function getTargetEntity() : Entity{
 		$eid = $this->getTargetEntityId();
 		if($eid !== null){
 			return $this->server->findEntity($eid);
@@ -880,7 +880,7 @@ abstract class Entity extends Location implements Metadatable{
 		return null;
 	}
 
-	public function setTargetEntity(?Entity $target) : void{
+	public function setTargetEntity(Entity $target) : void{
 		if($target === null){
 			$this->propertyManager->removeProperty(self::DATA_TARGET_EID);
 		}elseif($target->closed){
