@@ -48,7 +48,7 @@ class DataPropertyManager{
 
 	}
 
-	public function getByte(int $key) : ?int{
+	public function getByte(int $key) : int{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_BYTE);
 		assert(is_int($value) or $value === null);
 		return $value;
@@ -58,7 +58,7 @@ class DataPropertyManager{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_BYTE, $value, $force);
 	}
 
-	public function getShort(int $key) : ?int{
+	public function getShort(int $key) : int{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_SHORT);
 		assert(is_int($value) or $value === null);
 		return $value;
@@ -68,7 +68,7 @@ class DataPropertyManager{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_SHORT, $value, $force);
 	}
 
-	public function getInt(int $key) : ?int{
+	public function getInt(int $key) : int{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_INT);
 		assert(is_int($value) or $value === null);
 		return $value;
@@ -78,7 +78,7 @@ class DataPropertyManager{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_INT, $value, $force);
 	}
 
-	public function getFloat(int $key) : ?float{
+	public function getFloat(int $key) : float{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_FLOAT);
 		assert(is_float($value) or $value === null);
 		return $value;
@@ -88,7 +88,7 @@ class DataPropertyManager{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_FLOAT, $value, $force);
 	}
 
-	public function getString(int $key) : ?string{
+	public function getString(int $key) : string{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_STRING);
 		assert(is_string($value) or $value === null);
 		return $value;
@@ -98,27 +98,27 @@ class DataPropertyManager{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_STRING, $value, $force);
 	}
 
-	public function getCompoundTag(int $key) : ?Compound{
+	public function getCompoundTag(int $key) : Compound{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_SLOT);
 		assert($value instanceof CompoundTag or $value === null);
 		return $value;
 	}
 
-	public function setCompoundTag(int $key, CompoundTag $value, bool $force = false) : void{
+	public function setCompoundTag(int $key, Compound $value, bool $force = false) : void{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_SLOT, $value, $force);
 	}
 
-	public function getBlockPos(int $key) : ?Vector3{
+	public function getBlockPos(int $key) : Vector3{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_POS);
 		assert($value instanceof Vector3 or $value === null);
 		return $value;
 	}
 
-	public function setBlockPos(int $key, ?Vector3 $value, bool $force = false) : void{
+	public function setBlockPos(int $key, Vector3 $value, bool $force = false) : void{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_POS, $value !== null ? $value->floor() : null, $force);
 	}
 
-	public function getLong(int $key) : ?int{
+	public function getLong(int $key) : int{
 		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_LONG);
 		assert(is_int($value) or $value === null);
 		return $value;
@@ -128,14 +128,14 @@ class DataPropertyManager{
 		$this->setPropertyValue($key, Entity::DATA_TYPE_LONG, $value, $force);
 	}
 
-	public function getVector3(int $key) : ?Vector3{
-		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_VECTOR3F);
+	public function getVector3(int $key) : Vector3{
+		$value = $this->getPropertyValue($key, Entity::DATA_TYPE_VECTOR3);
 		assert($value instanceof Vector3 or $value === null);
 		return $value;
 	}
 
-	public function setVector3(int $key, ?Vector3 $value, bool $force = false) : void{
-		$this->setPropertyValue($key, Entity::DATA_TYPE_VECTOR3F, $value !== null ? $value->asVector3() : null, $force);
+	public function setVector3(int $key, Vector3 $value, bool $force = false) : void{
+		$this->setPropertyValue($key, Entity::DATA_TYPE_VECTOR3, $value !== null ? $value->asVector3() : null, $force);
 	}
 
 	public function removeProperty(int $key) : void{
