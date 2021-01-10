@@ -149,7 +149,6 @@ use pocketmine\entity\projectile\FireBall;
 use pocketmine\utils\MetadataConvertor;
 use pocketmine\event\server\SendRecipiesList;
 use pocketmine\network\protocol\PEPacket;
-use pocketmine\scheduler\InventoryTransactionTask;
 use pocketmine\tile\Beacon;
 use pocketmine\tile\Banner;
 
@@ -1725,8 +1724,6 @@ class Server{
 		if($this->getAdvancedProperty("main.player-shuffle", 0) > 0){
 			$this->scheduler->scheduleDelayedRepeatingTask(new CallbackTask([$this, "shufflePlayers"]), $this->getAdvancedProperty("main.player-shuffle", 0), $this->getAdvancedProperty("main.player-shuffle", 0));
 		}
-
-		$this->scheduler->scheduleRepeatingTask(new InventoryTransactionTask(), 2);
 		
 		$this->modsManager = new ModsManager();
 		
@@ -2315,10 +2312,10 @@ class Server{
 			foreach($this->getCraftingManager()->getRecipes() as $recipe){
 				$recipies[] = $recipe;
 			}
-			foreach($this->getCraftingManager()->getFurnaceRecipes() as $recipe){
+			
+			foreach ($this->getCraftingManager()->getFurnaceRecipes() as $recipe) {
 				$recipies[] = $recipe;
 			}
-			
 			$this->getPluginManager()->callEvent($ev = new SendRecipiesList($recipies));
 			
 			foreach($ev->getRecipies() as $recipe){
@@ -2331,7 +2328,7 @@ class Server{
 				}
 			}
 			
-			$pk->encode($p->getPlayerProtocol(), $p->getSubClientId());
+			$pk->encode($p->getPlayerProtocol());
 			$bpk = new BatchPacket();
 			$buffer = $pk->getBuffer();
         	$bpk->payload = zlib_encode(Binary::writeVarInt(strlen($buffer)) . $buffer, Player::getCompressAlg($p->getPlayerProtocol()), 7);
