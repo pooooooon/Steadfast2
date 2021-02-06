@@ -281,7 +281,7 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 	}
 	
 	public function isNeedSaveOnChunkUnload() {
-		return false;
+		return true;
 	}
 
 }
